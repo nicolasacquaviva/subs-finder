@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/gocolly/colly/v2"
 	"github.com/manifoldco/promptui"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -15,6 +17,28 @@ type Subtitle struct {
 	Link        string
 }
 
+func downloadFile(filePath string, fileUrl string) error {
+	res, err := http.Get(fileUrl)
+
+	if err != nil {
+		return err
+	}
+
+	defer res.Body.Close()
+
+	out, err := os.Create(filePath)
+
+	if err != nil {
+		return err
+	}
+
+	defer out.Close()
+
+	_, err = io.Copy(out, res.Body)
+
+	return err
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Enter something to look for the subtitle")
@@ -24,6 +48,7 @@ func main() {
 	name := os.Args[1]
 	url := fmt.Sprintf("https://www.subdivx.com/index.php?accion=5&masdesc=&buscar=%s&oxdown=1", strings.Join(strings.Split(name, " "), "+"))
 	c := colly.NewCollector()
+	renderOptions := true
 
 	var subs []Subtitle
 
@@ -59,14 +84,32 @@ func main() {
 			Templates: templates,
 		}
 
-		_, result, err := prompt.Run()
+		if renderOptions {
+			i, _, err := prompt.Run()
 
-		if err != nil {
-			fmt.Println("Error running prompt", err.Error())
-			os.Exit(1)
+			if err != nil {
+				fmt.Println("Error running prompt", err.Error())
+				os.Exit(1)
+			}
+
+			renderOptions = false
+
+			c.Visit(subs[i].Link)
 		}
 
-		fmt.Println(result)
+	})
+
+	c.OnHTML("#detalle_datos", func(e *colly.HTMLElement) {
+		// download => https://www.subdivx.com/sub8/482353.rar
+		id := strings.Replace(strings.Split(e.ChildAttr(".link1", "href"), "=")[1], "&u", "", 1)
+		downloadLink := fmt.Sprintf("https://www.subdivx.com/sub8/%s.rar", id)
+
+		err := downloadFile("./"+id+".rar", downloadLink)
+
+		if err != nil {
+			fmt.Println("Download error", err.Error())
+			os.Exit(1)
+		}
 	})
 
 	c.OnError(func(r *colly.Response, e error) {

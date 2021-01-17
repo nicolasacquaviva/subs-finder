@@ -36,7 +36,9 @@ func main() {
 
 		e.ForEach("#buscador_detalle", func(_ int, e *colly.HTMLElement) {
 			subtitle.Author = e.ChildText(".link1")
-			subtitle.Description = e.ChildText("#buscador_detalle_sub")
+			// long descriptions break the list render when moving through the options
+			// https://github.com/manifoldco/promptui/issues/143
+			// subtitle.Description = e.ChildText("#buscador_detalle_sub")
 			subtitle.Downloads = strings.Split(e.ChildText("#buscador_detalle_sub_datos"), " ")[1]
 
 			subs = append(subs, subtitle)
@@ -46,8 +48,8 @@ func main() {
 	c.OnScraped(func(r *colly.Response) {
 		templates := &promptui.SelectTemplates{
 			Label:    "{{ . }}?",
-			Active:   "- Description: {{ .Description | cyan }} (Downloads: {{ .Downloads | cyan }})",
-			Inactive: "Description: {{ .Description }} (Downloads: {{ .Downloads }})",
+			Active:   "- By: {{ .Author | cyan }} (Downloads: {{ .Downloads | cyan }})",
+			Inactive: "  By: {{ .Author }} (Downloads: {{ .Downloads }})",
 			Selected: "{{ .Description | red | cyan }}",
 		}
 
@@ -69,6 +71,7 @@ func main() {
 
 	c.OnError(func(r *colly.Response, e error) {
 		fmt.Println("on error", e.Error(), r.Body)
+		os.Exit(1)
 	})
 
 	c.Visit(url)

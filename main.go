@@ -17,6 +17,13 @@ type Subtitle struct {
 	Link        string
 }
 
+func handleError(e error) {
+	if e != nil {
+		fmt.Println("Error:", e.Error())
+		os.Exit(1)
+	}
+}
+
 func downloadFile(filePath string, fileUrl string) error {
 	res, err := http.Get(fileUrl)
 
@@ -41,7 +48,7 @@ func downloadFile(filePath string, fileUrl string) error {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Enter something to look for the subtitle")
+		fmt.Println("Usage: subs-finder 'finding dory'")
 		os.Exit(1)
 	}
 
@@ -87,10 +94,7 @@ func main() {
 		if renderOptions {
 			i, _, err := prompt.Run()
 
-			if err != nil {
-				fmt.Println("Error running prompt", err.Error())
-				os.Exit(1)
-			}
+			handleError(err)
 
 			renderOptions = false
 
@@ -106,15 +110,11 @@ func main() {
 
 		err := downloadFile("./"+id+".rar", downloadLink)
 
-		if err != nil {
-			fmt.Println("Download error", err.Error())
-			os.Exit(1)
-		}
+		handleError(err)
 	})
 
 	c.OnError(func(r *colly.Response, e error) {
-		fmt.Println("on error", e.Error(), r.Body)
-		os.Exit(1)
+		handleError(e)
 	})
 
 	c.Visit(url)

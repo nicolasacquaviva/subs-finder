@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -15,6 +17,11 @@ type Subtitle struct {
 	Description string
 	Downloads   string
 	Link        string
+}
+
+type TermSize struct {
+	X int
+	Y int
 }
 
 func handleError(e error) {
@@ -46,6 +53,38 @@ func downloadFile(filePath string, fileUrl string) error {
 	return err
 }
 
+func getTerminalSize() (*TermSize, error) {
+	cmd := exec.Command("stty", "size")
+
+	cmd.Stdin = os.Stdin
+
+	out, err := cmd.Output()
+
+	if err != nil {
+		return nil, err
+	}
+
+	size := strings.Split(string(out), " ")
+	y, err := strconv.Atoi(size[0])
+
+	if err != nil {
+		return nil, err
+	}
+
+	x, err := strconv.Atoi(strings.TrimSuffix(size[1], "\n"))
+
+	if err != nil {
+		return nil, err
+	}
+
+	termSize := &TermSize{
+		X: x,
+		Y: y,
+	}
+
+	return termSize, nil
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: subs-finder 'finding dory'")
@@ -56,6 +95,9 @@ func main() {
 	url := fmt.Sprintf("https://www.subdivx.com/index.php?accion=5&masdesc=&buscar=%s&oxdown=1", strings.Join(strings.Split(name, " "), "+"))
 	c := colly.NewCollector()
 	renderOptions := true
+	termSize, err := getTerminalSize()
+
+	handleError(err)
 
 	var subs []Subtitle
 
@@ -70,7 +112,12 @@ func main() {
 			subtitle.Author = e.ChildText(".link1")
 			// long descriptions break the list render when moving through the options
 			// https://github.com/manifoldco/promptui/issues/143
-			// subtitle.Description = e.ChildText("#buscador_detalle_sub")
+			subtitle.Description = e.ChildText("#buscador_detalle_sub")
+
+			if len(subtitle.Description) > termSize.X {
+				subtitle.Description = subtitle.Description[:termSize.X-100]
+			}
+
 			subtitle.Downloads = strings.Split(e.ChildText("#buscador_detalle_sub_datos"), " ")[1]
 
 			subs = append(subs, subtitle)
@@ -80,8 +127,8 @@ func main() {
 	c.OnScraped(func(r *colly.Response) {
 		templates := &promptui.SelectTemplates{
 			Label:    "{{ . }}?",
-			Active:   "- By: {{ .Author | cyan }} (Downloads: {{ .Downloads | cyan }})",
-			Inactive: "  By: {{ .Author }} (Downloads: {{ .Downloads }})",
+			Active:   "- {{ .Description }} By: {{ .Author | cyan }} (Downloads: {{ .Downloads | cyan }})",
+			Inactive: "  {{ .Description }} By: {{ .Author }} (Downloads: {{ .Downloads }})",
 			Selected: "{{ .Description | red | cyan }}",
 		}
 

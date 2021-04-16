@@ -42,13 +42,10 @@ func clearConsole() {
 func downloadFile(filePath string, fileUrl string, ext string) error {
 	res, err := http.Get(fileUrl + ext)
 
-	fmt.Println(">>> Respose", fileUrl+ext, res.StatusCode)
-
 	if res.StatusCode != 200 {
 		return downloadFile(filePath, fileUrl, ".zip")
 	}
 
-	fmt.Println(res.StatusCode)
 	if err != nil {
 		return err
 	}

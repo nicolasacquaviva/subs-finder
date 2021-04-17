@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"github.com/gocolly/colly/v2"
 	"github.com/manifoldco/promptui"
-	"io"
-	"net/http"
+	"github.com/nicolasacquaviva/subs-finder/lib/utils"
 	"net/url"
 	"os"
-	"os/exec"
-	"strconv"
 	"strings"
 )
 
@@ -19,83 +16,6 @@ type Subtitle struct {
 	Downloads   string
 	Label       string
 	Link        string
-}
-
-type TermSize struct {
-	X int
-	Y int
-}
-
-func handleError(e error) {
-	if e != nil {
-		fmt.Println("Error:", e.Error())
-		os.Exit(1)
-	}
-}
-
-func clearConsole() {
-	cmd := exec.Command("clear")
-	cmd.Stdout = os.Stdout
-	cmd.Run()
-}
-
-func downloadFile(filePath string, fileUrl string, ext string) error {
-	res, err := http.Get(fileUrl + ext)
-
-	if res.StatusCode != 200 {
-		return downloadFile(filePath, fileUrl, ".zip")
-	}
-
-	if err != nil {
-		return err
-	}
-
-	defer res.Body.Close()
-
-	out, err := os.Create(filePath + ext)
-
-	if err != nil {
-		return err
-	}
-
-	defer out.Close()
-
-	_, err = io.Copy(out, res.Body)
-	fmt.Println("File downloaded")
-
-	return err
-}
-
-func getTerminalSize() (*TermSize, error) {
-	cmd := exec.Command("stty", "size")
-
-	cmd.Stdin = os.Stdin
-
-	out, err := cmd.Output()
-
-	if err != nil {
-		return nil, err
-	}
-
-	size := strings.Split(string(out), " ")
-	y, err := strconv.Atoi(size[0])
-
-	if err != nil {
-		return nil, err
-	}
-
-	x, err := strconv.Atoi(strings.TrimSuffix(size[1], "\n"))
-
-	if err != nil {
-		return nil, err
-	}
-
-	termSize := &TermSize{
-		X: x,
-		Y: y,
-	}
-
-	return termSize, nil
 }
 
 func main() {
@@ -111,10 +31,10 @@ func main() {
 	)
 	c := colly.NewCollector()
 	renderOptions := true
-	clearConsole()
-	termSize, err := getTerminalSize()
+	utils.ClearConsole()
+	termSize, err := utils.GetTerminalSize()
 
-	handleError(err)
+	utils.HandleError(err)
 
 	var subs []Subtitle
 
@@ -171,7 +91,7 @@ func main() {
 
 		if renderOptions {
 			i, _, err := prompt.Run()
-			handleError(err)
+			utils.HandleError(err)
 			renderOptions = false
 			c.Visit(subs[i].Link)
 		}
@@ -180,7 +100,7 @@ func main() {
 	c.OnHTML("#detalle_datos", func(e *colly.HTMLElement) {
 		// download => https://www.subdivx.com/sub8/482353.rar
 		u, err := url.Parse(e.ChildAttr(".link1", "href"))
-		handleError(err)
+		utils.HandleError(err)
 		queryParams, _ := url.ParseQuery(u.RawQuery)
 		id := queryParams["id"][0]
 		subdir := queryParams["u"][0]
@@ -192,13 +112,13 @@ func main() {
 			"https://www.subdivx.com/sub%s/%s", subdir, id,
 		)
 
-		err = downloadFile("./"+id, downloadLink, ".rar")
+		err = utils.DownloadFile("./"+id, downloadLink, ".rar")
 
-		handleError(err)
+		utils.HandleError(err)
 	})
 
 	c.OnError(func(r *colly.Response, e error) {
-		handleError(e)
+		utils.HandleError(e)
 	})
 
 	c.Visit(baseUrl)

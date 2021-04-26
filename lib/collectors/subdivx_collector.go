@@ -1,4 +1,4 @@
-package spanish
+package collectors
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type Subtitle struct {
+type subtitle struct {
 	Author      string
 	Description string
 	Downloads   string
@@ -17,25 +17,25 @@ type Subtitle struct {
 	Link        string
 }
 
-func SubdivxCollect(c *colly.Collector, name string, termSize *utils.TermSize) {
-	var subs []Subtitle
+func (c *Collector) subdivxCollect(name string, termSize *utils.TermSize) {
+	var subs []subtitle
 	baseUrl := fmt.Sprintf(
 		"https://www.subdivx.com/index.php?accion=5&masdesc=&buscar=%s&oxdown=1",
 		strings.Join(strings.Split(name, " "), "+"),
 	)
 	renderOptions := true
 
-	c.OnHTML("#contenedor_izq", func(e *colly.HTMLElement) {
-		var subtitle Subtitle
+	c.c.OnHTML("#contenedor_izq", func(e *colly.HTMLElement) {
+		var sub subtitle
 		var index = len(subs)
 
 		e.ForEach("#menu_detalle_buscador", func(_ int, e *colly.HTMLElement) {
-			subtitle.Link = e.ChildAttr(".titulo_menu_izq", "href")
-			subs = append(subs, subtitle)
+			sub.Link = e.ChildAttr(".titulo_menu_izq", "href")
+			subs = append(subs, sub)
 		})
 
 		e.ForEach("#buscador_detalle", func(_ int, e *colly.HTMLElement) {
-			subtitle.Author = e.ChildText(".link1")
+			sub.Author = e.ChildText(".link1")
 			// long descriptions break the list render when moving through the options
 			// https://github.com/manifoldco/promptui/issues/143
 			subs[index].Description = e.ChildText("#buscador_detalle_sub")
@@ -60,7 +60,7 @@ func SubdivxCollect(c *colly.Collector, name string, termSize *utils.TermSize) {
 		})
 	})
 
-	c.OnScraped(func(r *colly.Response) {
+	c.c.OnScraped(func(r *colly.Response) {
 		templates := &promptui.SelectTemplates{
 			Label:    "{{ . }}",
 			Active:   "- {{ .Description }} By: {{ .Author | cyan }} (Downloads: {{ .Downloads | cyan }})",
@@ -68,7 +68,7 @@ func SubdivxCollect(c *colly.Collector, name string, termSize *utils.TermSize) {
 			Selected: "{{ .Description | red }}",
 		}
 
-		label := fmt.Sprintf("Subtitles for '%s':", name)
+		label := fmt.Sprintf("subtitles for '%s':", name)
 		prompt := promptui.Select{
 			Items:     subs,
 			Size:      10,
@@ -80,11 +80,11 @@ func SubdivxCollect(c *colly.Collector, name string, termSize *utils.TermSize) {
 			i, _, err := prompt.Run()
 			utils.HandleError(err)
 			renderOptions = false
-			c.Visit(subs[i].Link)
+			c.c.Visit(subs[i].Link)
 		}
 	})
 
-	c.OnHTML("#detalle_datos", func(e *colly.HTMLElement) {
+	c.c.OnHTML("#detalle_datos", func(e *colly.HTMLElement) {
 		// download => https://www.subdivx.com/sub8/482353.rar
 		u, err := url.Parse(e.ChildAttr(".link1", "href"))
 		utils.HandleError(err)
@@ -104,9 +104,9 @@ func SubdivxCollect(c *colly.Collector, name string, termSize *utils.TermSize) {
 		utils.HandleError(err)
 	})
 
-	c.OnError(func(r *colly.Response, e error) {
+	c.c.OnError(func(r *colly.Response, e error) {
 		utils.HandleError(e)
 	})
 
-	c.Visit(baseUrl)
+	c.c.Visit(baseUrl)
 }

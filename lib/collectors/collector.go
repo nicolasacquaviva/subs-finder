@@ -1,18 +1,23 @@
 package collectors
 
 import (
+	"fmt"
 	"github.com/gocolly/colly/v2"
-	"github.com/nicolasacquaviva/subs-finder/lib/collectors/spanish"
 	"github.com/nicolasacquaviva/subs-finder/lib/utils"
 )
 
 func ExecuteCollector(lang string, name string) {
-	c := colly.NewCollector()
+	collector := &Collector{
+		c: colly.NewCollector(),
+	}
 	termSize, err := utils.GetTerminalSize()
 	utils.HandleError(err)
 	utils.ClearConsole()
 
-	if lang == "español" {
-		spanish.SubdivxCollect(c, name, termSize)
+	switch lang {
+	case "español":
+		collector.subdivxCollect(name, termSize)
+	default:
+		fmt.Printf("Not yet implemented\n")
 	}
 }
